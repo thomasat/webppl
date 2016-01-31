@@ -7,7 +7,7 @@ import numpy as np
 import os
 import skimage 
 import sys
-from PIL import Image 
+from PIL import Image, ImageOps 
 from skimage.filters import threshold_otsu
 from scipy.misc import imsave
 from skimage.transform import resize
@@ -65,6 +65,40 @@ def process_phylopic():
 
 			#binarized_img = scaled_img.point(lambda x: 0 if x<128 else 255, '1')
 			scaled_img.save(output_dir + "phylopic_" + file[:-13] + '.png', "PNG")
+
+#Compute min bounding box, crop, save
+def process_vines():
+	#For each image in vine source
+	input_dir = "../targets/vine_source/"
+	output_dir = "../targets/vine_source_cropped/"
+	filelist = os.listdir(input_dir)
+
+	for file in filelist:
+		#Load image
+		im = Image.open(input_dir + file)
+		gray = im.convert('L')
+
+		#Invert
+		invert_im = ImageOps.invert(gray)
+
+		#Compute min bounding box
+		#Left, upper, right, lower
+		bbox = list(invert_im.getbbox())
+
+		#Width, height
+		sz = im.size 
+
+		#Add 2 pixel padding
+		bbox[0] = max(0, bbox[0] - 2) 
+		bbox[1] = max(0, bbox[1] - 2) 
+		bbox[2] = min(sz[0], bbox[2] + 2) 
+		bbox[3] = min(sz[1], bbox[3] + 2) 
+
+		#Crop
+		cropped = im.crop(tuple(bbox))
+
+		#Save cropped image
+		cropped.save(output_dir + file)
 
 #Convert glyph grid to individual binarized and resized 100x100 images
 #Only keep those with 500 foreground pixels and only one foreground connected component
@@ -165,4 +199,4 @@ def process_font():
 		subarr_ind +=1
 
 if __name__ == "__main__": 
-	process_font()
+	process_vines()
