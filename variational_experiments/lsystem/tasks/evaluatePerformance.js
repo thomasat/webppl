@@ -102,6 +102,7 @@ if (testDB) {
 
 }
 
+console.log(testlist);
 
 // Run evaluation, generate CSV
 var outfilename = performance_eval + '/' + outputName + '.csv';
@@ -147,6 +148,9 @@ for (var i = opts.start; i <= opts.end; i += opts.incr) {
 			});
 		} else {
 			throw 'Unrecognized sampler ' + opts.sampler;
+		}
+		if (sim > 1 || sim < -1) {
+			console.log("sim -EP ", sim);
 		}
 		var t1 = present();
 		var time = (t1 - t0)/1000;

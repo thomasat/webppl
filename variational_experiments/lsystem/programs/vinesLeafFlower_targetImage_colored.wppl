@@ -9,7 +9,7 @@ var ad = require.call(null, 'adnn/ad');
 // ----------------------------------------------------------------------------
 // Globals / constants
 
-var targetDB = utils.new(lsysUtils.TargetImageDatabase, __ROOT + '/targets/datasets/simpleCircles'); //flowers
+var targetDB = utils.new(lsysUtils.TargetImageDatabase, __ROOT + '/targets/datasets/orig');
 // var targetDB = utils.new(lsysUtils.TargetImageDatabase, __ROOT + '/targets/datasets/script_train');
 // var targetDB = utils.new(lsysUtils.TargetImageDatabase, __ROOT + '/targets/datasets/script_test');
 // var targetDB = utils.new(lsysUtils.TargetImageDatabase, __ROOT + '/targets/datasets/siggraph_letters');
@@ -30,6 +30,13 @@ var norm2world = function(p) {
 	return utils.new(THREE.Vector2,
 		viewport.xmin + p.x*(viewport.xmax - viewport.xmin), 
 		viewport.ymin + p.y*(viewport.ymax - viewport.ymin)
+	);	
+}
+
+var world2norm = function(p) {
+	return utils.new(THREE.Vector2, 
+		(p.x - viewport.xmin)/(viewport.xmax - viewport.xmin),
+		(p.y - viewport.ymin)/(viewport.ymax - viewport.ymin)
 	);	
 }
 
@@ -57,7 +64,7 @@ var makescore = function(val, target, tightness) {
 	return - (diff * diff) / (tightness * tightness);
 }
 
-var simTightness = 0.02; //0.02; //0.02; //0.02
+var simTightness = 0.02;
 var boundsTightness = 0.001;
 // var availableFuturesWeight = 25;
 var targetFactor = function() {
@@ -73,7 +80,6 @@ var targetFactor = function() {
 	var boundsfx = makescore(extraX, 0, boundsTightness);
 	var boundsfy = makescore(extraY, 0, boundsTightness);
 	var f = simf + boundsfx + boundsfy;
-	//var f = boundsfx + boundsfy;
 	// ////
 	// // More available futures factor
 	// var fprime = simf + boundsfx + boundsfy;
@@ -96,7 +102,6 @@ var makeProgram = function(neurallyGuided) {
 
 	// Set up ERPs (either normal or neurally-guided)
 	var makeSampler = function(erpName, bounds) {
-		console.log(erpName, bounds);
 		var erp = global[erpName + 'ERP'];
 		var verp = withImportanceDist(erp, Variational[erpName + 'ERP']);
 		var n = bounds.length;
@@ -148,41 +153,32 @@ var makeProgram = function(neurallyGuided) {
 	var _gaussian = makeMixtureSampler('gaussian', 4, [undefined, ad.scalar.exp]);
 	var _flip = makeSampler('bernoulli', [ad.scalar.sigmoid]);
 	var _discrete3 = makeSampler('discrete', [ad.scalar.sigmoid, ad.scalar.sigmoid, ad.scalar.sigmoid]);
-	var _uniform = makeSampler('uniform', [ad.scalar.sigmoid, ad.scalar.sigmoid]);
 
-	console.log(_uniform);
 
-	
 	var addBranch = function(newbranch, currState) {
 		// Update model state
-		
 		globalStore.geo = {
 			type: 'branch',
 			branch: newbranch,
 			next: globalStore.geo,
-			//parent: currState.prevBranch,
+			parent: currState.prevBranch,
 			n: globalStore.geo ? globalStore.geo.n + 1 : 1
 		};
 		globalStore.bbox = globalStore.bbox.clone().union(lsysUtils.bboxes.branch(newbranch));
 
 		// Add new heuristic factor
 		targetFactor();
-	
 	};
-	
-	
 
 	var addLeaf = function(newleaf, currState) {
-		//console.log("adding leaf");
 		// Update model state
 		globalStore.geo = {
 			type: 'leaf',
 			leaf: newleaf,
 			next: globalStore.geo,
-			//parent: currState.prevBranch,
+			parent: currState.prevBranch,
 			n: globalStore.geo ? globalStore.geo.n + 1 : 1
 		};
-		//console.log(globalStore.geo.n);
 		globalStore.bbox = globalStore.bbox.clone().union(lsysUtils.bboxes.leaf(newleaf));
 
 		// Add new heuristic factor
@@ -190,13 +186,12 @@ var makeProgram = function(neurallyGuided) {
 	};
 
 	var addFlower = function(newflower, currState) {
-		//console.log("adding flower ");
 		// Update model state
 		globalStore.geo = {
 			type: 'flower',
 			flower: newflower,
 			next: globalStore.geo,
-			//parent: currState.prevBranch,
+			parent: currState.prevBranch,
 			n: globalStore.geo ? globalStore.geo.n + 1 : 1
 		};
 		globalStore.bbox = globalStore.bbox.clone().union(lsysUtils.bboxes.flower(newflower));
@@ -206,13 +201,13 @@ var makeProgram = function(neurallyGuided) {
 	}
 
 
-	var initialWidth = 1.5; //1.0; //0.75;
+	var initialWidth = 1.0; //0.75;
 	var widthDecay = 1.0; //0.975;
 	var minWidthPercent = 0.15;
 	var minWidth = minWidthPercent*initialWidth;
 	var leafAspect = 2.09859154929577;
-	var leafWidthMul = 2.75; //1.3;
-	var flowerRadMul = 2.75; //1;
+	var leafWidthMul = 1.3;
+	var flowerRadMul = 1;
 
 	var state = function(obj) {
 		return {
@@ -231,112 +226,55 @@ var makeProgram = function(neurallyGuided) {
 
 	var lOpts = ['none', 'left', 'right'];
 	var lProbs = [1, 1, 1];
+	var branch = function(currState) {
 
-
-	var flower = function(currState) {
-		var newState = currState;
-
-		/*
-		//Predict "where to look"
-		var middlePos = norm2world(utils.new(THREE.Vector2,
-					0.5,
-					0.5
-					));
-		var middleState = state({
-			depth: 0,
-			pos: middlePos,
-			angle: 0,
-			width: initialWidth,
-			prevBranch: undefined
-		});
-
-		var focusPos_x = _gaussian((viewport.xmin + viewport.xmax)/2, 10, middleState, 'attentionX');;
-		var focusPos_y = _gaussian((viewport.xmin + viewport.xmax)/2, 10, middleState, 'attentionY');;
+		// Generate new branch
+		var width = widthDecay * currState.width;
+		var length = 2;
+		var newang = currState.angle + _gaussian(0, Math.PI/8, currState, 'angle');
+		var newbranch = {
+			start: currState.pos,
+			angle: newang,
+			width: width,
+			end: polar2rect(length, newang).add(currState.pos)
+		};
+		addBranch(newbranch, currState);
 
 		var newState = state({
-			depth: 0,
-			pos: norm2world(utils.new(THREE.Vector2,
-					focusPos_x,
-					focusPos_y
-					)),
-			angle: 0,
-			width: initialWidth,
-			prevBranch: undefined
+			depth: currState.depth + 1,
+			pos: newbranch.end,
+			angle: newbranch.angle,
+			width: newbranch.width,
+			prevBranch: globalStore.geo
 		});
-	*/
 
-		var center_x = _gaussian((viewport.xmin + viewport.xmax)/2, 50, newState, 'flowerCenterX');
-		var center_y = _gaussian((viewport.ymin + viewport.ymax)/2, 50, newState, 'flowerCenterY');
-
-		//console.log("center x y ", center_x, center_y);
-
-		addFlower({
-			center: utils.new(THREE.Vector2,
-			center_x,
-			center_y
-			), //ERP //newbranch.end
-			radius: flowerRadMul * initialWidth, //fixed
-			angle: 0//_gaussian(0, Math.PI/12, newState, 'flowerAngle') //ERP //newbranch.angle 
-		}, newState);
-
-		if (neurallyGuided) {
-			globalStore.nnGuide.step(globalStore, newState);
-		}
-
-		//globalStore.terminated = true;
-
-		// Terminate?
-		/*
+		// Generate leaf?
 		future(function() {
-			globalStore.terminated = true;
+			var leafOpt = lOpts[_discrete3(lProbs[0], lProbs[1], lProbs[2], newState, 'leaf')];
+			if (leafOpt !== 'none') {
+				var lwidth = leafWidthMul * initialWidth;
+				var llength = lwidth * leafAspect;
+				var angmean = (leafOpt === 'left') ? Math.PI/4 : -Math.PI/4;
+				var langle = newbranch.angle + _gaussian(angmean, Math.PI/12, newState, 'leafAngle');
+				var lstart = newbranch.start.clone().lerp(newbranch.end, 0.5);
+				var lend = polar2rect(llength, langle).add(lstart);
+				var lcenter = lstart.clone().add(lend).multiplyScalar(0.5);
+				addLeaf({
+					length: llength,
+					width: lwidth,
+					angle: langle,
+					center: lcenter
+				}, newState);
+			}
 		});
-		*/
-	}
-	/*
-	var leaf = function(currState) { //branch
-		var newState = currState;
-
-		var leafOpt = lOpts[_discrete3(lProbs[0], lProbs[1], lProbs[2], newState, 'leaf')];
-		//if (leafOpt !== 'none') {
-		var lwidth = leafWidthMul * initialWidth;
-		var llength = lwidth * leafAspect;
-		var angmean = (leafOpt === 'left') ? Math.PI/4 : -Math.PI/4;
-		//var langle = newbranch.angle + _gaussian(angmean, Math.PI/12, newState, 'leafAngle');
-		var langle = _gaussian(angmean, Math.PI/12, newState, 'leafAngle');
-		var start_x = _gaussian((viewport.xmin + viewport.xmax)/2, 10, newState, 'leafStartX');
-		var start_y = _gaussian((viewport.ymin + viewport.ymax)/2, 10, newState, 'leafStartY');
-		
-		var lstart = utils.new(THREE.Vector2,
-			start_x,
-			start_y
-		);
-		//var lstart = newbranch.start.clone().lerp(newbranch.end, 0.5);
-		var lend = polar2rect(llength, langle).add(lstart);
-		var lcenter = lstart.clone().add(lend).multiplyScalar(0.5);
-		//console.log(lcenter);
-		addLeaf({
-			length: llength,
-			width: lwidth,
-			angle: langle,
-			center: lcenter
-		}, newState);
-		
 
 		// Generate flower?
 		future(function() {
 			if (_flip(0.5, newState, 'flower')) {
-			
-				var center_x = _gaussian((viewport.xmin + viewport.xmax)/2, 10, newState, 'flowerCenterX');
-				var center_y = _gaussian((viewport.ymin + viewport.ymax)/2, 10, newState, 'flowerCenterY');
-
 				addFlower({
-
-					center: utils.new(THREE.Vector2,
-					center_x,
-					center_y
-					), //ERP //newbranch.end
-					radius: flowerRadMul * initialWidth, //fixed
-					angle: _gaussian(0, Math.PI/12, newState, 'flowerAngle') //ERP //newbranch.angle 
+					center: newbranch.end,
+					radius: flowerRadMul * initialWidth,
+					angle: newbranch.angle
 				}, newState);
 			}
 		});
@@ -347,22 +285,19 @@ var makeProgram = function(neurallyGuided) {
 
 		// Terminate?
 		future(function() {
-			var terminateProb = 0.5; //0.5
+			var terminateProb = 0.5;
 			if (_flip(terminateProb, newState, 'terminate')) {
 				globalStore.terminated = true;
-				//console.log('term inate ');
 			} else {
-				// Generate no further shapes w/ prob 1/3
-				// Generate leaf w/ prob 1/3
-				// Generate flower w/ prob 1/3
+				// Generate no further branches w/ prob 1/3
+				// Generate one further branch w/ prob 1/3
+				// Generate two further branches w/ prob 1/3
 				future(function() {
-					if (!globalStore.terminated && _flip(0.66, newState, 'shape1')) { //0.66, branch1
-						//console.log('new thing');
-						leaf(newState);
+					if (!globalStore.terminated && newState.width > minWidth && _flip(0.66, newState, 'branch1')) {
+						branch(newState);
 						future(function() {
-							if (!globalStore.terminated && _flip(0.5, newState, 'shape2')) { //0.5, branch2
-								//console.log('another new thing');
-								flower(newState);
+							if (!globalStore.terminated && newState.width > minWidth && _flip(0.5, newState, 'branch2')) {
+								branch(newState);
 							}
 							// else factor(0);
 						});
@@ -372,7 +307,6 @@ var makeProgram = function(neurallyGuided) {
 			}
 		});
 	};
-	*/
 
 	var generate = function() {
 		// Constants needed by the guide architecture
@@ -399,20 +333,12 @@ var makeProgram = function(neurallyGuided) {
 		globalStore.bbox = utils.new(THREE.Box2);
 
 		// Determine starting state by inverting viewport transform
-		var starting_world_pos = utils.new(THREE.Vector2,
-					0,
-					0
-					);
-		var starting_dir = utils.new(THREE.Vector2,
-					0,
-					0
-					);
-		//var starting_world_pos = norm2world(globalStore.target.startPos);
-		//var starting_dir = globalStore.target.startDir;
+		var starting_world_pos = norm2world(globalStore.target.startPos);
+		var starting_dir = globalStore.target.startDir;
 		var starting_ang = Math.atan2(starting_dir.y, starting_dir.x);
 
 		// These are separated like this so that we can have an initial local
-		//    state to feed to the f for the initial angle.
+		//    state to feed to the _gaussian for the initial angle.
 		var initState = state({
 			depth: 0,
 			pos: starting_world_pos,
@@ -428,14 +354,7 @@ var makeProgram = function(neurallyGuided) {
 			prevBranch: initState.prevBranch
 		});
 
-		future(function() {
-			//if (_flip(0.5, startState, 'startShape'))  {
-			//	leaf(startState); 
-			//}
-			//else {
-				flower(startState); 
-		//	}
-		});
+		future(function() { branch(startState); });
 		finishAllFutures();
 
 		return globalStore.geo;

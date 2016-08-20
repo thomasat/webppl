@@ -26,6 +26,7 @@ def scale(image, max_size, method=Image.ANTIALIAS):
     back.paste(scaled, offset)
     return back
 
+#Compute crop given 
 def compute_crop(dim, diff, min_d, max_d, offset):
 	#If both within bounds
 	if max_d + offset < dim and min_d - offset >= 0:
@@ -35,7 +36,7 @@ def compute_crop(dim, diff, min_d, max_d, offset):
 		diff2 = offset - min_d 
 		max_d += offset + diff2
 		min_d = 0
-	elif minc - offset >= 0:
+	elif min_d - offset >= 0:
 		diff2 = max_d + offset - dim
 		min_d -= offset
 		min_d -= diff2
@@ -66,39 +67,40 @@ def process_phylopic():
 			#binarized_img = scaled_img.point(lambda x: 0 if x<128 else 255, '1')
 			scaled_img.save(output_dir + "phylopic_" + file[:-13] + '.png', "PNG")
 
-#Compute min bounding box, crop, save
+#Compute min square bounding box, crop, save
 def process_vines():
 	#For each image in vine source
-	input_dir = "../targets/vine_source/"
-	output_dir = "../targets/vine_source_cropped/"
+	input_dir = "../targets/source_thick_flower/"
+	output_dir = "../targets/ns/"
 	filelist = os.listdir(input_dir)
 
 	for file in filelist:
-		#Load image
-		im = Image.open(input_dir + file)
-		gray = im.convert('L')
+		if file.endswith("png"):
+			#Load image
+			im = Image.open(input_dir + file)
+			gray = im.convert('L')
 
-		#Invert
-		invert_im = ImageOps.invert(gray)
+			#Invert
+			invert_im = ImageOps.invert(gray)
 
-		#Compute min bounding box
-		#Left, upper, right, lower
-		bbox = list(invert_im.getbbox())
+			#Compute min bounding box
+			#Left, upper, right, lower
+			bbox = list(invert_im.getbbox())
 
-		#Width, height
-		sz = im.size 
+			#Crop
+			cropped = im.crop(tuple(bbox))
 
-		#Add 2 pixel padding
-		bbox[0] = max(0, bbox[0] - 2) 
-		bbox[1] = max(0, bbox[1] - 2) 
-		bbox[2] = min(sz[0], bbox[2] + 2) 
-		bbox[3] = min(sz[1], bbox[3] + 2) 
+			dim = min(cropped.size)
 
-		#Crop
-		cropped = im.crop(tuple(bbox))
+			#Resize to square
+			sz = dim, dim 
 
-		#Save cropped image
-		cropped.save(output_dir + file)
+			cropped = cropped.resize(sz, Image.ANTIALIAS)
+
+			print "after ", cropped.size 
+
+			#Save cropped image
+			cropped.save(output_dir + file)
 
 #Convert glyph grid to individual binarized and resized 100x100 images
 #Only keep those with 500 foreground pixels and only one foreground connected component

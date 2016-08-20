@@ -21,7 +21,7 @@ If startX and startY are given then text files for all images (or, if --file is 
 will be generated with the same starting point, without manual annotation. 
 
 """
-source_dir = '../targets/source/'
+source_dir = '../targets/ns/'
 ext = '.png'
 
 filelist = []

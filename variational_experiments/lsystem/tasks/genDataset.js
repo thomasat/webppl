@@ -46,6 +46,7 @@ function saveDownsampledAndFlipped(imageName, sourceLoc, outputLoc, outputLocFli
 	// console.log('*** ' + flopCall);
 	syscall(flopCall);
 	
+	
 	var coordfile = fs.readFileSync(sourceDir + imageName.slice(0, -4) + '.txt', 'utf8');
 	var coordlines = coordfile.split('\n');
 	var coords = coordlines[0].split(' ');
@@ -65,7 +66,7 @@ function saveDownsampledAndFlipped(imageName, sourceLoc, outputLoc, outputLocFli
 	//Save normalized starting coordinate files to image_flipped.txt
 	var flippedCoordStr = flippedCoords[0] + ' ' + flippedCoords[1] + '\n' + flippedDir[0] + ' ' + flippedDir[1];
 	fs.writeFileSync(listDirPrefix + dir + '/' + imageName.slice(0, -4) + '_flipped.txt', flippedCoordStr);
-
+	
 }
 
 //Iterate through each line of images.txt

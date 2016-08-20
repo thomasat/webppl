@@ -56,6 +56,7 @@ if (!fs.existsSync(filename)) {
 var t0 = present();
 var counter = 1;
 while (true) {
+	//console.log(counter)
 	if (targetDB) {
 		if (opts.targetName) {
 			// Optionally, we can only generate for a single target
@@ -85,7 +86,7 @@ while (true) {
 	}
 	// Filter out results that are too small (these are likely 'bad'/outlier results and we don't
 	//    want to train on them)
-	if (MAPn >= 10) {
+	if (MAPn >= 1) { //default 10
 		var outTrace = MAPtrace;
 		if (targetDB) {
 			outTrace = [globalStore.target.index].concat(outTrace);

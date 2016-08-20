@@ -25,6 +25,7 @@ var outfilename = performance_compare + '/' + opts.outputName + '.csv';
 var csvfile = fs.openSync(outfilename, 'w');
 for (var i = 0; i < names.length; i++) {
 	var name = names[i];
+	console.log(name);
 	var filename = performance_eval + '/' + name + '.csv';
 	var lines = fs.readFileSync(filename).toString().split('\n');
 	if (i === 0) {
