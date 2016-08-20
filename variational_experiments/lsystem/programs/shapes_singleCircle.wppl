@@ -265,8 +265,8 @@ var makeProgram = function(neurallyGuided) {
 		});
 	*/
 
-		var center_x = _gaussian((viewport.xmin + viewport.xmax)/2, 50, newState, 'flowerCenterX');
-		var center_y = _gaussian((viewport.ymin + viewport.ymax)/2, 50, newState, 'flowerCenterY');
+		var center_x = _gaussian((viewport.xmin + viewport.xmax)/2, 5, newState, 'flowerCenterX');
+		var center_y = _gaussian((viewport.ymin + viewport.ymax)/2, 5, newState, 'flowerCenterY');
 
 		//console.log("center x y ", center_x, center_y);
 
